@@ -1,0 +1,6 @@
+handle ctrl-c
+events and Command callback (TerminalReady, CommandStart, CommandEnd)
+restart term
+error handles
+parameters
+dynamic parameters
