@@ -5,15 +5,12 @@ import os
 import subprocess
 from tkinter import ttk
 
-from .command import Command
+from .command import Command, Callable
 from .misc import string_normalizer, re_normalizer, base36encode
 
 
 class Terminal(ttk.Frame):
-    def __init__(self,
-            master = None,
-            **kwargs
-        ):
+    def __init__(self, master = None, **kwargs):
         super().__init__(master, **kwargs)
 
         self.screen_name: str = str(self.winfo_id())
@@ -25,12 +22,12 @@ class Terminal(ttk.Frame):
         self.fifo_path: str = f"/tmp/{self.screen_name}.log"
         self.fifo_fd: int | None = None
         self.read_interval_ms: int = 100
-        self.read_lenght: int = 100
+        self.read_lenght: int = 4096
         self.previous_readed: str = b''
-        end_string: str = '\nID:{id};ExitCode: $?\n'
+        end_string: str = '\nID:{id};ExitCode:$?\n'
         self.end_string: str = string_normalizer(end_string)
         self.end_string_pattern: bytes = (re_normalizer(end_string)
-            .replace(b'\{id\}', b'([0-9a-f]+)')
+            .replace(b'\{id\}', b'([0-9a-z]+)')
             .replace(b'\$\?', b'([0-9]{1,3})')
         )
 
@@ -61,8 +58,6 @@ class Terminal(ttk.Frame):
         mid_index = len(self.previous_readed)
 
         if readed:
-            print("READ:", readed)
-            print("UNION:", union)
             if not self.is_initialized:
                 self.is_initialized = True
                 self.event_generate('<<TerminalInitialized>>')
@@ -73,7 +68,6 @@ class Terminal(ttk.Frame):
                 for match in match_iter:
                     command = self.command_dict.get(int(match.group(1), base=36))
                     if command is not None and command.exit_code is None:
-                        print(f"SET EXITCODE OF {command.cmd} ({command}) = {match.group(2)}")
                         command.exit_code = int(match.group(2))
                         self.event_generate('<<CommandEnded>>', data=command)
                         mid_index = match.end()
@@ -81,12 +75,15 @@ class Terminal(ttk.Frame):
         self.previous_readed = union[mid_index:]
         self.after(self.read_interval_ms, self.read_fifo)
 
-    def run_command(self, cmd: str) -> Command:
-        end_command = f'; printf "{self.end_string.format(id=base36encode(self.next_id))}"\n'
-        cmd_string = cmd + end_command
-        self.send_string(cmd_string)
+    def run_command(self, cmd: str, background: bool = False, callback: Callable | None = None) -> Command:
+        end_command = f'printf "{self.end_string.format(id=base36encode(self.next_id))}"'
+        cmd = cmd.strip()
+        cmd_string = f"({cmd}); {end_command}"
+        if background:
+            cmd_string = f"({cmd_string}) &"
+        self.send_string(f'{cmd_string}\n')
 
-        command = Command(cmd)
+        command = Command(cmd, callback)
         self.command_dict[self.next_id] = command
         self.next_id += 1
         return command
