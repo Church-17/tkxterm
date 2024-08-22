@@ -20,7 +20,7 @@ def re_normalizer(string: str) -> bytes:
     return re.escape(string.encode())
 
 ALPHABET = string.digits + string.ascii_lowercase
-def base36encode(number: int):
+def base36encode(number: int) -> str:
     sign = '-' if number < 0 else ''
     number = abs(number)
     base36 = ""

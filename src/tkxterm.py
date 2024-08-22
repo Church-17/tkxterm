@@ -13,7 +13,7 @@ class Terminal(ttk.Frame):
     def __init__(self, master = None, **kwargs):
         super().__init__(master, **kwargs)
 
-        self.screen_name: str = str(self.winfo_id())
+        self.screen_name: str = f'tkxterm_{self.winfo_id()}'
         self.is_initialized: bool = False
         self.before_init_queue: Queue[str] = Queue()
         self.next_id: int = 0
@@ -31,22 +31,34 @@ class Terminal(ttk.Frame):
             .replace(b'\$\?', b'([0-9]{1,3})')
         )
 
-        self.start_term_event: str = self.bind("<Visibility>", self.start_term, '+')
+        self.start_term_event: str | None = self.bind("<Visibility>", self.restart_term, '+')
+        self.read_fifo_event: str | None = None
 
-    def start_term(self, event):
-        atexit.register(self.cleanup)
-        os.mkfifo(self.fifo_path)
-        subprocess.Popen(
-            f"xterm -into {self.screen_name} -geometry 1000x1000 -e '" +
-                string_normalizer(f"screen -S {self.screen_name} -L -Logfile {self.fifo_path}") +
-            f"'",
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        self.fifo_fd = os.open(self.fifo_path, os.O_RDONLY | os.O_NONBLOCK)
-        self.after(self.read_interval_ms, self.read_fifo)
-        self.unbind("<Visibility>", self.start_term_event)
+    def restart_term(self, event=None):
+        if self.winfo_exists():
+            atexit.unregister(self.cleanup)
+            atexit.register(self.cleanup)
+            if not os.path.exists(self.fifo_path):
+                os.mkfifo(self.fifo_path)
+            subprocess.Popen(
+                f"xterm -into {self.winfo_id()} -geometry 1000x1000 -e '" + string_normalizer(
+                    f"if (screen -ls | grep {self.screen_name}); then "
+                        f"screen -r {self.screen_name} || (screen -S {self.screen_name} -X quit; screen -S {self.screen_name} -L -Logfile {self.fifo_path}); "
+                    f"else "
+                        f"screen -S {self.screen_name} -L -Logfile {self.fifo_path}; "
+                    f"fi"
+                ) + f"'",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if self.fifo_fd is None:
+                self.fifo_fd = os.open(self.fifo_path, os.O_RDONLY | os.O_NONBLOCK)
+            if self.read_fifo_event is None:
+                self.read_fifo_event = self.after(self.read_interval_ms, self.read_fifo)
+            if self.start_term_event is not None:
+                self.unbind("<Visibility>", self.start_term_event)
+                self.start_term_event = None
 
     def read_fifo(self):
         try:
@@ -73,7 +85,7 @@ class Terminal(ttk.Frame):
                         mid_index = match.end()
 
         self.previous_readed = union[mid_index:]
-        self.after(self.read_interval_ms, self.read_fifo)
+        self.read_fifo_event = self.after(self.read_interval_ms, self.read_fifo)
 
     def run_command(self, cmd: str, background: bool = False, callback: Callable | None = None) -> Command:
         end_command = f'printf "{self.end_string.format(id=base36encode(self.next_id))}"'
@@ -108,13 +120,17 @@ class Terminal(ttk.Frame):
 
     def cleanup(self):
         subprocess.Popen(
-            f'screen -S {self.screen_name} -X quit',
+            f'screen -ls | grep {self.screen_name} | cut -f 2 | while read line; do screen -S $line -X quit ; done',
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+        if self.read_fifo_event is not None:
+            self.after_cancel(self.read_fifo_event)
+            self.read_fifo_event = None
         if self.fifo_fd is not None:
             os.close(self.fifo_fd)
+            self.fifo_fd = None
         if os.path.exists(self.fifo_path):
             os.remove(self.fifo_path)
         atexit.unregister(self.cleanup)
