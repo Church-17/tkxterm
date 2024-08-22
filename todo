@@ -1,6 +1,7 @@
-handle ctrl-c
-events and Command callback (TerminalReady, CommandStart, CommandEnd)
+handle backgroud command
 restart term
 error handles
-parameters
 dynamic parameters
+
+random id
+capture from a to b(end)
