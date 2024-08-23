@@ -19,6 +19,7 @@ class Terminal(ttk.Frame):
         self.next_id: int = 0
         self.command_dict: dict[int, Command] = {}
 
+        self.xterm_proc: subprocess.Popen | None = None
         self.fifo_path: str = f"/tmp/{self.screen_name}.log"
         self.fifo_fd: int | None = None
         self.read_interval_ms: int = 100
@@ -40,18 +41,19 @@ class Terminal(ttk.Frame):
             atexit.register(self.cleanup)
             if not os.path.exists(self.fifo_path):
                 os.mkfifo(self.fifo_path)
-            subprocess.Popen(
-                f"xterm -into {self.winfo_id()} -geometry 1000x1000 -e '" + string_normalizer(
-                    f"if (screen -ls | grep {self.screen_name}); then "
-                        f"screen -r {self.screen_name} || (screen -S {self.screen_name} -X quit; screen -S {self.screen_name} -L -Logfile {self.fifo_path}); "
-                    f"else "
-                        f"screen -S {self.screen_name} -L -Logfile {self.fifo_path}; "
-                    f"fi"
-                ) + f"'",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            if self.xterm_proc is None or self.xterm_proc.poll() is not None:
+                self.xterm_proc = subprocess.Popen(
+                    f"xterm -into {self.winfo_id()} -geometry 1000x1000 -e '" + string_normalizer(
+                        f"if (screen -ls | grep {self.screen_name}); then "
+                            f"screen -r {self.screen_name}; "
+                        f"else "
+                            f"screen -S {self.screen_name} -L -Logfile {self.fifo_path}; "
+                        f"fi"
+                    ) + f"'",
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
             if self.fifo_fd is None:
                 self.fifo_fd = os.open(self.fifo_path, os.O_RDONLY | os.O_NONBLOCK)
             if self.read_fifo_event is None:
