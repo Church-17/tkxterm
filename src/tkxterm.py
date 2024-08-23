@@ -10,87 +10,149 @@ from .misc import string_normalizer, re_normalizer, base36encode
 
 
 class Terminal(ttk.Frame):
-    def __init__(self, master = None, **kwargs):
+    def __init__(self, 
+            master = None,
+            end_string: str = '\nID:{id};ExitCode:$?\n',
+            restore_on_close: bool = True,
+            read_interval_ms: int = 100,
+            read_length: int = 4096,
+            **kwargs
+        ):
         super().__init__(master, **kwargs)
 
-        self.screen_name: str = f'tkxterm_{self.winfo_id()}'
-        self.is_initialized: bool = False
-        self.before_init_queue: Queue[str] = Queue()
-        self.next_id: int = 0
-        self.command_dict: dict[int, Command] = {}
+        self._screen_name: str = f'tkxterm_{self.winfo_id()}'
+        self._ready: bool = False
+        self._before_init_queue: Queue[str] = Queue()
+        self._next_id: int = 0
+        self._command_dict: dict[int, Command] = {}
+        self._xterm_proc: subprocess.Popen | None = None
+        self._fifo_path: str = f"/tmp/{self._screen_name}.log"
+        self._fifo_fd: int | None = None
+        self._read_interval_ms: int = 0
+        self._read_length: int = 0
+        self._previous_readed: str = b''
+        self._end_string: str = ''
+        self._end_string_pattern: bytes = b''
+        self._start_term_event: str | None = None
+        self._read_fifo_event: str | None = None
 
-        self.xterm_proc: subprocess.Popen | None = None
-        self.fifo_path: str = f"/tmp/{self.screen_name}.log"
-        self.fifo_fd: int | None = None
-        self.read_interval_ms: int = 100
-        self.read_lenght: int = 4096
-        self.previous_readed: str = b''
-        end_string: str = '\nID:{id};ExitCode:$?\n'
-        self.end_string: str = string_normalizer(end_string)
-        self.end_string_pattern: bytes = (re_normalizer(end_string)
-            .replace(b'\{id\}', b'([0-9a-z]+)')
-            .replace(b'\$\?', b'([0-9]{1,3})')
-        )
+        self.end_string = end_string
+        self.restore_on_close: bool = restore_on_close
+        self.read_interval_ms: int = read_interval_ms
+        self.read_length: int = read_length
 
-        self.start_term_event: str | None = self.bind("<Visibility>", self.restart_term, '+')
-        self.read_fifo_event: str | None = None
+        self.restart_term()
+    
+    @property
+    def ready(self) -> bool:
+        return self._ready
+    
+    @property
+    def end_string(self) -> str:
+        return self._end_string
+    @end_string.setter
+    def end_string(self, string: str) -> None:
+        if isinstance(string, str):
+            norm_string = re_normalizer(string)
+            if b'\{id\}' in norm_string and b'\$\?' in norm_string:
+                self._end_string = string_normalizer(string)
+                self._end_string_pattern = (norm_string
+                    .replace(b'\{id\}', b'([0-9a-z]+)')
+                    .replace(b'\$\?', b'([0-9]{1,3})')
+                )
+            else:
+                raise ValueError('"end_string" not contains "{id}" or "$?"')
+        else:
+            raise TypeError('"end_string" not a "str" instance')
 
+    @property
+    def read_interval_ms(self) -> int:
+        return self._read_interval_ms
+    @read_interval_ms.setter
+    def read_interval_ms(self, value: int) -> None:
+        if isinstance(value, int):
+            self._read_interval_ms = value
+        else:
+            raise TypeError('"read_interval_ms" not a "int" instance')
+        
+    @property
+    def read_length(self) -> int:
+        return self._read_length
+    @read_length.setter
+    def read_length(self, value: int) -> None:
+        if isinstance(value, int):
+            if value > len(self._end_string_pattern):
+                self._read_length = value
+            else:
+                raise ValueError('"read_length" too small')
+        else:
+            raise TypeError('"read_length" not a "int" instance')
+    
     def restart_term(self, event=None):
-        if self.winfo_exists():
-            atexit.unregister(self.cleanup)
-            atexit.register(self.cleanup)
-            if not os.path.exists(self.fifo_path):
-                os.mkfifo(self.fifo_path)
-            if self.xterm_proc is None or self.xterm_proc.poll() is not None:
-                self.xterm_proc = subprocess.Popen(
+        if self.winfo_ismapped():
+            atexit.unregister(self._cleanup)
+            atexit.register(self._cleanup)
+            if not os.path.exists(self._fifo_path):
+                os.mkfifo(self._fifo_path)
+            if self._xterm_proc is None or self._xterm_proc.poll() is not None:
+                self._xterm_proc = subprocess.Popen(
                     f"xterm -into {self.winfo_id()} -geometry 1000x1000 -e '" + string_normalizer(
-                        f"if (screen -ls | grep {self.screen_name}); then "
-                            f"screen -r {self.screen_name}; "
+                        f"if (screen -ls | grep {self._screen_name}); then "
+                            f"screen -r {self._screen_name}; "
                         f"else "
-                            f"screen -S {self.screen_name} -L -Logfile {self.fifo_path}; "
+                            f"screen -S {self._screen_name} -L -Logfile {self._fifo_path}; "
                         f"fi"
                     ) + f"'",
                     shell=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
-            if self.fifo_fd is None:
-                self.fifo_fd = os.open(self.fifo_path, os.O_RDONLY | os.O_NONBLOCK)
-            if self.read_fifo_event is None:
-                self.read_fifo_event = self.after(self.read_interval_ms, self.read_fifo)
-            if self.start_term_event is not None:
-                self.unbind("<Visibility>", self.start_term_event)
-                self.start_term_event = None
+            if self._fifo_fd is None:
+                self._fifo_fd = os.open(self._fifo_path, os.O_RDONLY | os.O_NONBLOCK)
+            if self._read_fifo_event is None:
+                self._read_fifo_event = self.after(self._read_interval_ms, self._read_fifo)
+            if self._start_term_event is not None:
+                self._start_term_event = self.unbind("<Visibility>", self._start_term_event)
 
-    def read_fifo(self):
+        elif self._start_term_event is None:
+            self._start_term_event = self.bind("<Visibility>", self.restart_term, '+')
+
+    def _read_fifo(self):
         try:
-            readed = os.read(self.fifo_fd, self.read_lenght)
+            readed = os.read(self._fifo_fd, self._read_length)
+            if not readed and self._ready:
+                self._ready = False
+                self.event_generate('<<TerminalClosed>>')
+                if self.restore_on_close:
+                    self.restart_term()
         except BlockingIOError:
             readed = b''
 
-        union = self.previous_readed + readed
-        mid_index = len(self.previous_readed)
+        union = self._previous_readed + readed
+        mid_index = len(self._previous_readed)
 
         if readed:
-            if not self.is_initialized:
-                self.is_initialized = True
-                self.event_generate('<<TerminalInitialized>>')
-                while not self.before_init_queue.empty():
-                    self.send_string(self.before_init_queue.get())
+            if not self._ready:
+                self._ready = True
+                self.event_generate('<<TerminalReady>>')
+                while not self._before_init_queue.empty():
+                    self.send_string(self._before_init_queue.get())
             else:
-                match_iter = re.finditer(self.end_string_pattern, union)
+                match_iter = re.finditer(self._end_string_pattern, union)
                 for match in match_iter:
-                    command = self.command_dict.get(int(match.group(1), base=36))
-                    if command is not None and command.exit_code is None:
+                    key_id = int(match.group(1), base=36)
+                    command = self._command_dict.get(key_id)
+                    if command is not None:
                         command.exit_code = int(match.group(2))
+                        self._command_dict.pop(key_id)
                         self.event_generate('<<CommandEnded>>', data=command)
                         mid_index = match.end()
 
-        self.previous_readed = union[mid_index:]
-        self.read_fifo_event = self.after(self.read_interval_ms, self.read_fifo)
+        self._previous_readed = union[mid_index:]
+        self._read_fifo_event = self.after(self._read_interval_ms, self._read_fifo)
 
     def run_command(self, cmd: str, background: bool = False, callback: Callable | None = None) -> Command:
-        end_command = f'printf "{self.end_string.format(id=base36encode(self.next_id))}"'
+        end_command = f'printf "{self._end_string.format(id=base36encode(self._next_id))}"'
         cmd = cmd.strip()
         cmd_string = f"({cmd}); {end_command}"
         if background:
@@ -98,41 +160,42 @@ class Terminal(ttk.Frame):
         self.send_string(f'{cmd_string}\n')
 
         command = Command(cmd, callback)
-        self.command_dict[self.next_id] = command
-        self.next_id += 1
+        self._command_dict[self._next_id] = command
+        self._next_id += 1
         return command
 
     def send_string(self, string: str) -> None:
-        if self.is_initialized:
-            string = string_normalizer(string)
-            string = string.replace("$", "\\$")
+        if self._ready:
+            string = string_normalizer(string).replace("$", "\\$")
             subprocess.Popen(
-                f"screen -S {self.screen_name} -X stuff '{string}'",
+                f"screen -S {self._screen_name} -X stuff '{string}'",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ).wait()
             self.event_generate('<<StringSent>>', data=string)
         else:
-            self.before_init_queue.put(string)
+            self._before_init_queue.put(string)
 
     def destroy(self):
-        self.cleanup()
+        self._cleanup()
         super().destroy()
 
-    def cleanup(self):
+    def _cleanup(self):
         subprocess.Popen(
-            f'screen -ls | grep {self.screen_name} | cut -f 2 | while read line; do screen -S $line -X quit ; done',
+            f'screen -ls | grep {self._screen_name} | cut -f 2 | while read line; do screen -S $line -X quit ; done',
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-        )
-        if self.read_fifo_event is not None:
-            self.after_cancel(self.read_fifo_event)
-            self.read_fifo_event = None
-        if self.fifo_fd is not None:
-            os.close(self.fifo_fd)
-            self.fifo_fd = None
-        if os.path.exists(self.fifo_path):
-            os.remove(self.fifo_path)
-        atexit.unregister(self.cleanup)
+        ).wait()
+        if self._start_term_event is not None:
+            self._start_term_event = self.unbind("<Visibility>", self._start_term_event)
+        if self._read_fifo_event is not None:
+            self._read_fifo_event = self.after_cancel(self._read_fifo_event)
+        if self._fifo_fd is not None:
+            self._fifo_fd = os.close(self._fifo_fd)
+        if self._xterm_proc is not None:
+            self._xterm_proc = self._xterm_proc.terminate()
+        if os.path.exists(self._fifo_path):
+            os.remove(self._fifo_path)
+        atexit.unregister(self._cleanup)

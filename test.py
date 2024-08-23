@@ -23,9 +23,9 @@ notebook.grid(column=0, row=0, sticky='NSWE')
 term0 = Terminal(notebook)
 term0.grid(column=0, row=0, sticky='NSWE')
 notebook.add(term0)
-# term1 = Terminal(notebook)
-# term1.grid(column=0, row=0, sticky='NSWE')
-# notebook.add(term1)
+term1 = Terminal(notebook)
+term1.grid(column=0, row=0, sticky='NSWE')
+notebook.add(term1)
 
 
 res0 = term0.run_command('sleep 2;cd; ./a.sh', True,
@@ -33,20 +33,19 @@ res0 = term0.run_command('sleep 2;cd; ./a.sh', True,
 )
 term0.run_command('echo ok', callback=lambda x: print(x.exit_code))
 
-window.after(5000, term0.restart_term)
-window.after(6000, lambda: term0.run_command('echo ok', callback=lambda x: print('hey')))
+# window.after(5000, term0.restart_term)
+window.after(4000, lambda: term0.run_command('echo ok', callback=lambda x: print('hey')))
 
-# res0.set_callback(lambda x: print(f'EXITCODE OF {x.cmd} ({x}):', x.exit_code))
-# res0.set_callback(None)
-# window.after(1000, lambda: term0.run_command('sleep 2;cd; ./a.sh', background=True))
-# window.after(2000, lambda: term0.run_command('sleep 2;cd; ./a.sh'))
+res0.set_callback(lambda x: print(f'EXITCODE OF {x.cmd} ({x}):', x.exit_code))
+res0.set_callback(None)
+window.after(1000, lambda: term0.run_command('sleep 2;cd; ./a.sh', background=True))
+window.after(2000, lambda: term0.run_command('sleep 2;cd; ./a.sh'))
 
-# res1 = term1.run_command('echo aa')
-# window.after(4000, lambda: term1.run_command('sleep 2;cd; ./a.sh'))
-# window.after(5000, lambda: term1.run_command("echo '4'"))
-# window.after(5500, lambda: term1.send_string("ciao"))
-# window.after(7000, lambda: term1.run_command("echo \"\nci\rao\n\""))
-# window.after(8000, lambda: term1.run_command("echo \"$PS1\""))
+res1 = term1.run_command('echo aa')
+window.after(4000, lambda: term1.run_command('sleep 2;cd; ./a.sh'))
+window.after(5000, lambda: term1.run_command("echo '4'"))
+window.after(7000, lambda: term1.run_command("echo \"\nci\rao\n\""))
+window.after(8000, lambda: term1.run_command("echo \"$PS1\""))
 
 window.mainloop()
 
