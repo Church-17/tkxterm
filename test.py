@@ -20,7 +20,7 @@ window.focus_force()
 notebook = ttk.Notebook(window)
 notebook.grid(column=0, row=0, sticky='NSWE')
 
-term0 = Terminal(notebook)
+term0 = Terminal(notebook, )
 term0.grid(column=0, row=0, sticky='NSWE')
 notebook.add(term0)
 term1 = Terminal(notebook)
@@ -42,7 +42,7 @@ window.after(1000, lambda: term0.run_command('sleep 2;cd; ./a.sh', background=Tr
 window.after(2000, lambda: term0.run_command('sleep 2;cd; ./a.sh'))
 
 res1 = term1.run_command('echo aa')
-window.after(4000, lambda: term1.run_command('sleep 2;cd; ./a.sh'))
+window.after(4000, lambda: term1.run_command('sleep 2;cd; ./a.sh', callback=lambda x: print(x.exit_code)))
 window.after(5000, lambda: term1.run_command("echo '4'"))
 window.after(7000, lambda: term1.run_command("echo \"\nci\rao\n\""))
 window.after(8000, lambda: term1.run_command("echo \"$PS1\""))

@@ -12,7 +12,6 @@ from .misc import string_normalizer, re_normalizer, base36encode
 class Terminal(ttk.Frame):
     def __init__(self, 
             master = None,
-            end_string: str = '\nID:{id};ExitCode:$?\n',
             restore_on_close: bool = True,
             read_interval_ms: int = 100,
             read_length: int = 4096,
@@ -31,39 +30,20 @@ class Terminal(ttk.Frame):
         self._read_interval_ms: int = 0
         self._read_length: int = 0
         self._previous_readed: str = b''
-        self._end_string: str = ''
-        self._end_string_pattern: bytes = b''
+        end_string: str = '\nID:{id};ExitCode:$?\n'
+        self._end_string: str = string_normalizer(end_string)
+        self._end_string_pattern: bytes = (re_normalizer(end_string)
+            .replace(b'\{id\}', b'([0-9a-z]+)')
+            .replace(b'\$\?', b'([0-9]{1,3})')
+        )
         self._start_term_event: str | None = None
         self._read_fifo_event: str | None = None
 
-        self.end_string = end_string
         self.restore_on_close: bool = restore_on_close
-        self.read_interval_ms: int = read_interval_ms
-        self.read_length: int = read_length
+        self.read_interval_ms = read_interval_ms
+        self.read_length = read_length
 
         self.restart_term()
-    
-    @property
-    def ready(self) -> bool:
-        return self._ready
-    
-    @property
-    def end_string(self) -> str:
-        return self._end_string
-    @end_string.setter
-    def end_string(self, string: str) -> None:
-        if isinstance(string, str):
-            norm_string = re_normalizer(string)
-            if b'\{id\}' in norm_string and b'\$\?' in norm_string:
-                self._end_string = string_normalizer(string)
-                self._end_string_pattern = (norm_string
-                    .replace(b'\{id\}', b'([0-9a-z]+)')
-                    .replace(b'\$\?', b'([0-9]{1,3})')
-                )
-            else:
-                raise ValueError('"end_string" not contains "{id}" or "$?"')
-        else:
-            raise TypeError('"end_string" not a "str" instance')
 
     @property
     def read_interval_ms(self) -> int:
@@ -81,12 +61,20 @@ class Terminal(ttk.Frame):
     @read_length.setter
     def read_length(self, value: int) -> None:
         if isinstance(value, int):
-            if value > len(self._end_string_pattern):
+            if value >= 64:
                 self._read_length = value
             else:
-                raise ValueError('"read_length" too small')
+                raise ValueError('"read_length" smaller than 64')
         else:
             raise TypeError('"read_length" not a "int" instance')
+    
+    @property
+    def ready(self) -> bool:
+        return self._ready
+    
+    @property
+    def end_string(self) -> bool:
+        return self._end_string
     
     def restart_term(self, event=None):
         if self.winfo_ismapped():
