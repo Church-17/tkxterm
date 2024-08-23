@@ -61,10 +61,10 @@ class Terminal(ttk.Frame):
     @read_length.setter
     def read_length(self, value: int) -> None:
         if isinstance(value, int):
-            if value >= 64:
+            if value >= 1024:
                 self._read_length = value
             else:
-                raise ValueError('"read_length" smaller than 64')
+                raise ValueError('"read_length" smaller than 1kb')
         else:
             raise TypeError('"read_length" not a "int" instance')
     
