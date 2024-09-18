@@ -33,8 +33,8 @@ class Terminal(ttk.Frame):
         end_string: str = '\nID:{id};ExitCode:$?\n'
         self._end_string: str = string_normalizer(end_string)
         self._end_string_pattern: bytes = (re_normalizer(end_string)
-            .replace(b'\{id\}', b'([0-9a-z]+)')
-            .replace(b'\$\?', b'([0-9]{1,3})')
+            .replace(b'\\{id\\}', b'([0-9a-z]+)')
+            .replace(b'\\$\\?', b'([0-9]{1,3})')
         )
         self._start_term_event: str | None = None
         self._read_fifo_event: str | None = None
