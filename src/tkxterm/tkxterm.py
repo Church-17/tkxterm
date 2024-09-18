@@ -6,17 +6,23 @@ import subprocess
 from tkinter import ttk
 
 from .command import Command, Callable
-from .misc import string_normalizer, re_normalizer, base36encode
+from ._parser import string_normalizer, re_normalizer, base36encode
 
 
 class Terminal(ttk.Frame):
+    "XTerm frame in Tkinter"
+
     def __init__(self, 
             master = None,
             restore_on_close: bool = True,
             read_interval_ms: int = 100,
             read_length: int = 4096,
             **kwargs
-        ):
+        ) -> None:
+        """
+        Create a Ttk frame with XTerm embedded, with the possibility to type strings and executing commands in it, direcly or through Python.
+        """
+
         super().__init__(master, **kwargs)
 
         self._screen_name: str = f'tkxterm_{self.winfo_id()}'
@@ -25,7 +31,7 @@ class Terminal(ttk.Frame):
         self._next_id: int = 0
         self._command_dict: dict[int, Command] = {}
         self._xterm_proc: subprocess.Popen | None = None
-        self._fifo_path: str = f"/tmp/{self._screen_name}.log"
+        self._fifo_path: str = f'/tmp/{self._screen_name}.log'
         self._fifo_fd: int | None = None
         self._read_interval_ms: int = 0
         self._read_length: int = 0
@@ -48,6 +54,7 @@ class Terminal(ttk.Frame):
     @property
     def read_interval_ms(self) -> int:
         return self._read_interval_ms
+    
     @read_interval_ms.setter
     def read_interval_ms(self, value: int) -> None:
         if isinstance(value, int):
@@ -58,6 +65,7 @@ class Terminal(ttk.Frame):
     @property
     def read_length(self) -> int:
         return self._read_length
+    
     @read_length.setter
     def read_length(self, value: int) -> None:
         if isinstance(value, int):
@@ -76,7 +84,7 @@ class Terminal(ttk.Frame):
     def end_string(self) -> bool:
         return self._end_string
     
-    def restart_term(self, event=None):
+    def restart_term(self, event=None) -> None:
         if self.winfo_ismapped():
             atexit.unregister(self._cleanup)
             atexit.register(self._cleanup)
@@ -105,7 +113,7 @@ class Terminal(ttk.Frame):
         elif self._start_term_event is None:
             self._start_term_event = self.bind("<Visibility>", self.restart_term, '+')
 
-    def _read_fifo(self):
+    def _read_fifo(self) -> None:
         try:
             readed = os.read(self._fifo_fd, self._read_length)
             if not readed and self._ready:
@@ -165,11 +173,11 @@ class Terminal(ttk.Frame):
         else:
             self._before_init_queue.put(string)
 
-    def destroy(self):
+    def destroy(self) -> None:
         self._cleanup()
         super().destroy()
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         subprocess.Popen(
             f'screen -ls | grep {self._screen_name} | cut -f 2 | while read line; do screen -S $line -X quit ; done',
             shell=True,
