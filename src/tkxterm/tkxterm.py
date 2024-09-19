@@ -154,7 +154,7 @@ class Terminal(ttk.Frame):
         except BlockingIOError:
             readed = None
 
-        # If terminal is not ready but a writer connect to the fifo...
+        # If terminal is not ready but a writer connect to the fifo, make it ready
         if not self._ready and readed != b'':
             # Set logfile flush to 0
             subprocess.Popen(
@@ -172,7 +172,7 @@ class Terminal(ttk.Frame):
             while not self._before_init_queue.empty():
                 self.send_string(self._before_init_queue.get())
             
-        # If terminal is ready but the writer disconnect from the fifo...
+        # If terminal is ready but the writer disconnect from the fifo, make it not ready
         elif self._ready and readed == b'':
             # Set ready state
             self._ready = False
