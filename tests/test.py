@@ -21,7 +21,7 @@ window.focus_force()
 notebook = ttk.Notebook(window)
 notebook.grid(column=0, row=0, sticky='NSWE')
 
-term0 = Terminal(notebook, )
+term0 = Terminal(notebook, restore_on_close=True)
 term0.grid(column=0, row=0, sticky='NSWE')
 notebook.add(term0)
 term1 = Terminal(notebook)

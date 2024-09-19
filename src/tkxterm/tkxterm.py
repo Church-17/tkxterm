@@ -146,52 +146,56 @@ class Terminal(ttk.Frame):
     def _read_fifo(self) -> None:
         """Read the fifo screen log"""
 
+        # Read fifo
+        # It returns an empty bytes if no writer have opened it
+        # It raise BlockingIOError if writer have opened it but it doesn't write anything
         try:
-            # Read fifo
-            # It returns an empty string if no writer have opened it
-            # It raise BlockingIOError if writer have opened it but it doesn't write anything
             readed = os.read(self._fifo_fd, self._read_length)
-
-            # If no writer is connected and the terminal was ready before, handle TerminalClosed
-            if not readed and self._ready:
-                self._ready = False
-                self.event_generate('<<TerminalClosed>>')
-                if self.restore_on_close:
-                    self.restart_term()
-
         except BlockingIOError:
+            readed = None
+
+        # If terminal is not ready but a writer connect to the fifo...
+        if not self._ready and readed != b'':
+            # Set ready state
+            self._ready = True
+            self.event_generate('<<TerminalReady>>')
+
+            # Send to terminal all elements in queue
+            while not self._before_init_queue.empty():
+                self.send_string(self._before_init_queue.get())
+            
+        # If terminal is ready but the writer disconnect from the fifo...
+        elif self._ready and readed == b'':
+            # Set ready state
+            self._ready = False
+            self.event_generate('<<TerminalClosed>>')
+
+            # Restart terminal if needed
+            if self.restore_on_close:
+                self.restart_term()
+
+        # Make readed coherent bytes
+        if readed is None:
             readed = b''
 
         # Search in union of previous_readed and readed, to handle broken regex
         union = self._previous_readed + readed
         mid_index = len(self._previous_readed)
 
-        # If it has readed something...
+        # If it has readed something
         if readed:
-
-            # If it was not ready handle TerminalReady
-            if not self._ready:
-                self._ready = True
-                self.event_generate('<<TerminalReady>>')
-
-                # Send to terminal all elements in queue
-                while not self._before_init_queue.empty():
-                    self.send_string(self._before_init_queue.get())
-            
-            # If it was ready search for exit codes
-            else:
-                match_iter = re.finditer(self._end_string_pattern, union)
-                for match in match_iter:
-                    # Get Command instance by ID (regex group 1)
-                    key_id = int(match.group(1), base=36)
-                    command = self._command_dict.get(key_id, None)
-                    if command is not None:
-                        # Set exit code
-                        command.exit_code = int(match.group(2))
-                        self._command_dict.pop(key_id)
-                        self.event_generate('<<CommandEnded>>', data=command)
-                        # Found a match, so before there can't be broken regex
-                        mid_index = match.end()
+            match_iter = re.finditer(self._end_string_pattern, union)
+            for match in match_iter:
+                # Get Command instance by ID (regex group 1)
+                key_id = int(match.group(1), base=36)
+                command = self._command_dict.get(key_id, None)
+                if command is not None:
+                    # Set exit code
+                    command.exit_code = int(match.group(2))
+                    self._command_dict.pop(key_id)
+                    self.event_generate('<<CommandEnded>>', data=command)
+                    # Found a match, so before there can't be broken regex
+                    mid_index = match.end()
 
         # Update previous readed
         self._previous_readed = union[mid_index:]
