@@ -203,7 +203,7 @@ class Terminal(ttk.Frame):
         """
         Send a command to the terminal. It returns a Command object.
         
-        Use `background` to execute it in background, because using `&` as usual only capture the exit code of the starts of the command, and not at the end.
+        Use `background` to execute it in background, because using simply `&` the exit code indicates only if the command started correctly or not.
         
         Set `callback` to a function you want to execute at the finish of the command. It receives the Command object as a parameter.
         """
