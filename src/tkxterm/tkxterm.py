@@ -156,6 +156,14 @@ class Terminal(ttk.Frame):
 
         # If terminal is not ready but a writer connect to the fifo...
         if not self._ready and readed != b'':
+            # Set logfile flush to 0
+            subprocess.Popen(
+                f"screen -S {self._screen_name} -X logfile flush 0",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ).wait()
+
             # Set ready state
             self._ready = True
             self.event_generate('<<TerminalReady>>')
