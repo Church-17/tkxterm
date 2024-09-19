@@ -11,7 +11,7 @@ def string_normalizer(string: str) -> str:
         .replace("\r", "\\r")
         .replace("\t", "\\t")
         .replace("\v", "\\v")
-        .replace("'", "'\"'\"'")
+        .replace("\'", "\'\"\'\"\'")
     )
     return string
 
