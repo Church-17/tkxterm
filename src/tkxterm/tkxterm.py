@@ -30,11 +30,15 @@ class Terminal(ttk.Frame):
         - `read_length: int` How many bytes are readed per interval at most;
         """
 
-        # Check if XTerm is installed
+        # Check if XTerm and screen are installed
         try:
             subprocess.call("xterm -version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except:
             raise SystemError("XTerm not installed, please install it.")
+        try:
+            subprocess.call("screen --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except:
+            raise SystemError("screen not installed, please install it.")
 
         # Create Ttk frame
         super().__init__(master, **kwargs)
