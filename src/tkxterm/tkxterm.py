@@ -30,6 +30,12 @@ class Terminal(ttk.Frame):
         - `read_length: int` How many bytes are readed per interval at most;
         """
 
+        # Check if XTerm is installed
+        try:
+            subprocess.call("xterm -version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except:
+            raise SystemError("XTerm not installed.")
+
         # Create Ttk frame
         super().__init__(master, **kwargs)
 
@@ -157,12 +163,12 @@ class Terminal(ttk.Frame):
         # If terminal is not ready but a writer connect to the fifo, make it ready
         if not self._ready and readed != b'':
             # Set logfile flush to 0
-            subprocess.Popen(
+            subprocess.call(
                 f"screen -S {self._screen_name} -X logfile flush 0",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-            ).wait()
+            )
 
             # Set ready state
             self._ready = True
@@ -248,12 +254,12 @@ class Terminal(ttk.Frame):
         # If the terminal is ready, send the string
         if self._ready:
             string = string_normalizer(string).replace("$", "\\$")
-            subprocess.Popen(
+            subprocess.call(
                 f"screen -S \"{self._screen_name}\" -X stuff \'{string}\'",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-            ).wait()
+            )
             self.event_generate('<<StringSent>>', data=string)
 
         # If the terminal is not ready, save the string in a queue
@@ -269,12 +275,12 @@ class Terminal(ttk.Frame):
         """Cleanup all the done"""
         
         # Close every possible instances of the screen with that name
-        subprocess.Popen(
+        subprocess.call(
             f'screen -ls | grep \"{self._screen_name}\" | cut -f 2 | while read line; do screen -S \"$line\" -X quit ; done',
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-        ).wait()
+        )
 
         # Unplan the restart_term event is it is planned
         if self._restart_term_event is not None:
