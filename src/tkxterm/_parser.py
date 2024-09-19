@@ -2,6 +2,8 @@ import string
 import re
 
 def string_normalizer(string: str) -> str:
+    """Prepare a string escaping the characters"""
+
     string = (string
         .replace("\\", "\\\\")
         .replace("\a", "\\a")
@@ -16,11 +18,15 @@ def string_normalizer(string: str) -> str:
     return string
 
 def re_normalizer(string: str) -> bytes:
+    """Escape characters and adapt it to Linux new-line"""
+
     string = ''.join('\r\n' if char in {'\r', '\n'} else char for char in string)
     return re.escape(string.encode())
 
 ALPHABET = string.digits + string.ascii_lowercase
 def base36encode(number: int) -> str:
+    """Encode an integer to base36"""
+
     sign = '-' if number < 0 else ''
     number = abs(number)
     base36 = ""
