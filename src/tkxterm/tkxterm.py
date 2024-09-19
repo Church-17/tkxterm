@@ -34,7 +34,7 @@ class Terminal(ttk.Frame):
         try:
             subprocess.call("xterm -version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except:
-            raise SystemError("XTerm not installed.")
+            raise SystemError("XTerm not installed, please install it.")
 
         # Create Ttk frame
         super().__init__(master, **kwargs)
