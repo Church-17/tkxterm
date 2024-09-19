@@ -1,3 +1,4 @@
+from typing import Callable
 from queue import Queue
 import atexit
 import re
@@ -5,7 +6,7 @@ import os
 import subprocess
 from tkinter import ttk
 
-from .command import Command, Callable
+from .command import Command
 from ._parser import string_normalizer, re_normalizer, base36encode
 
 
