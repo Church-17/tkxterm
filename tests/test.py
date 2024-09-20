@@ -14,12 +14,13 @@ window.resizable(None, None)
 window.minsize(SIZE_X, SIZE_Y)
 window.maxsize(SIZE_X, SIZE_Y)
 window.title(TITLE)
-window.columnconfigure(0, weight=1)
+window.columnconfigure(1, weight=1)
 window.rowconfigure(0, weight=1)
 window.focus_force()
 
+
 notebook = ttk.Notebook(window)
-notebook.grid(column=0, row=0, sticky='NSWE')
+notebook.grid(column=1, row=0, sticky='NSWE')
 
 term0 = Terminal(notebook, restore_on_close=True)
 term0.grid(column=0, row=0, sticky='NSWE')
@@ -28,6 +29,8 @@ term1 = Terminal(notebook)
 term1.grid(column=0, row=0, sticky='NSWE')
 notebook.add(term1)
 
+but = ttk.Button(window, text='ciao', command=(lambda: term0.run_command('echo ciao', callback=(lambda x: print('exit code di ciao: ', x.exit_code)))))
+but.grid(row=0, column=0, sticky='w')
 
 res0 = term0.run_command('sleep 2;cd; ./a.sh', True,
     lambda x: print(f'EXITCODE OF {x.cmd} ({x}):', x.exit_code)

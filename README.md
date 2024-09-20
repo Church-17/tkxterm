@@ -6,6 +6,20 @@ TkXTerm makes available a Terminal Ttk frame, that have XTerm embedded and it ca
 
 This project is born with the purpose of having an embedded and fully functional bash terminal in a Tkinter GUI, to interact with it and run some commands automatically, viewing in real-time the output and the results and having the exit code back into an object in the code.
 
+## Installation
 
+TkXTerm can be installed from PyPI using the command `pip install tkxterm`.
+Besides Tkinter, it has XTerm and screen (a GNU software, generally preinstalled in all Linux system) as dependecies. Make sure you have both installed before trying to use this library. Because of these dependencies, this library is available only for Linux system.
 
-To execute a command in background, there is a specific argument in the function rather than using the classic `&` method, because otherwise the exit code indicates only if the command started correctly or not, and not the actual exit code of the command runned in background.
+## Usage
+
+TkXTerm makes available the Terminal Ttk frame, so all the Ttk Frame options are available.
+In addition, it can accept the following options:
+- `restore_on_close`, which enables automatic restart of the terminal when it is closed (e.g. by accidentally pressing Ctrl-D);
+- `read_interval_ms`, which specifies how many milliseconds should pass between each reading of the terminal to retrieve exit codes;
+- `read_length`, which specifies how many bytes to 1ead in each interval.
+
+It has also its methods to interact with the terminal:
+- `run_command` is the resposible for run any command you want on the terminal. To execute a command in background, use the `background` argument rather than using the classic `&` method, because otherwise the exit code indicates only if the command started correctly or not, and not the actual exit code of the command runned in background. You can also specify a `callback` that will be called immediatly after the command is terminated, this callback receive the Command object as argument.
+- `send_string` is the function for the actual sending any string to the terminal, and stores it if the terminal is not ready. With this you can send any string at any moment to the terminal.
+- `restart_term` is the procedure for reboot the terminal if it is closed.
