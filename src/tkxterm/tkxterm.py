@@ -227,7 +227,7 @@ class Terminal(ttk.Frame):
         
         Use `background` to execute it in background, because using simply `&` the exit code indicates only if the command started correctly or not.
         
-        Set `callback` to a function you want to execute at the finish of the command. It receives the Command object as a parameter.
+        Set `callback` to a function you want to execute at the end of the command. It receives the Command object as a parameter.
         """
 
         # Check params
