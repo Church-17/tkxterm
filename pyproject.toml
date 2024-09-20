@@ -17,6 +17,7 @@ maintainers = [
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENSE"}
 
+requires-python = ">=3.10"
 dependencies = []
 
 keywords = ["xterm", "terminal", "bash", "tkinter", "tk", "ttk", "frame"]
