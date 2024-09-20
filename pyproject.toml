@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 dynamic = ["version"]
 
 name = "tkxterm"
-description = "Use XTerm embedded in a Tkinter frame, passing to it strings and commands, and receving the exit code of the commands"
+description = "Use XTerm embedded in a Tkinter frame, passing to it strings and commands and receving the exit code of the commands"
 authors = [
     {name="Matteo Chiesa", email="matteo.chiesa.mc@gmail.com"}
 ]
