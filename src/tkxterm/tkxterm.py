@@ -12,7 +12,7 @@ from .command import Command
 
 
 class Terminal(ttk.Frame):
-    "XTerm frame in Tkinter"
+    """XTerm frame in Tkinter"""
 
     def __init__(self, master = None,
             restore_on_close: bool = True,

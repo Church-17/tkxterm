@@ -1,6 +1,9 @@
 from collections.abc import Callable
 
+
 class Command:
+    """Command with its result"""
+
     def __init__(self, cmd: str, callback: Callable | None = None) -> None:
         """
         Create a Command instance, with the command string, the exit code and a callback to execute when it finished
