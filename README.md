@@ -28,6 +28,8 @@ It has also its methods to interact with the terminal:
 
 Furthermore, it have the properties `ready`, that indicates if the terminal is ready or not, and `end_string`, that returns the string appended at the end of any command executed.
 
+Terminal generates also some events: when the terminal is ready or no more ready, it generates `<<TerminalReady>>` and `<<TerminalClosed>>`; when a command finishes it generates `<<CommandEnded>>` with the referiment to the Command object, while when a string is sent to the terminal, it generates `<<StringSent>>` with the referiment to the string itself.
+
 ### Command
 
 The `run_command` method returns an instance of the `Command` class, that hold the command string in the `cmd` property, the exit code of itself in the `exit_code` property, and the callback in the `callback` property.
