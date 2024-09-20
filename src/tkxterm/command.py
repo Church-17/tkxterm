@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 class Command:
     def __init__(self, cmd: str, callback: Callable | None = None) -> None:

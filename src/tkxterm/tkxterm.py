@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 from queue import Queue
 import atexit
 import re
@@ -14,8 +14,7 @@ from .command import Command
 class Terminal(ttk.Frame):
     "XTerm frame in Tkinter"
 
-    def __init__(self, 
-            master = None,
+    def __init__(self, master = None,
             restore_on_close: bool = True,
             read_interval_ms: int = 100,
             read_length: int = 4096,
@@ -31,14 +30,18 @@ class Terminal(ttk.Frame):
         """
 
         # Check if XTerm and screen are installed
-        try:
-            subprocess.call("xterm -version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except:
-            raise SystemError("XTerm not installed, please install it.")
-        try:
-            subprocess.call("screen --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except:
-            raise SystemError("screen not installed, please install it.")
+        retcode = subprocess.run(
+            "xterm -version",
+            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode
+        if retcode != 0:
+            raise RuntimeError("XTerm not installed, please install it")
+        retcode = subprocess.run(
+            "screen --version",
+            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode
+        if retcode != 0:
+            raise RuntimeError("screen not installed, please install it")
 
         # Create Ttk frame
         super().__init__(master, **kwargs)
@@ -132,9 +135,7 @@ class Terminal(ttk.Frame):
                             f"screen -S \"{self._screen_name}\" -L -Logfile \"{self._fifo_path}\"; "
                         f"fi"
                     ) + f"\'",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 )
             
             # If fifo is not opened, open it
@@ -167,12 +168,12 @@ class Terminal(ttk.Frame):
         # If terminal is not ready but a writer connect to the fifo, make it ready
         if not self._ready and readed != b'':
             # Set logfile flush to 0
-            subprocess.call(
+            retcode = subprocess.run(
                 f"screen -S {self._screen_name} -X logfile flush 0",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+                shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            ).returncode
+            if retcode != 0:
+                raise RuntimeError("Failed to set correctly the logfile")
 
             # Set ready state
             self._ready = True
@@ -200,7 +201,7 @@ class Terminal(ttk.Frame):
         union = self._previous_readed + readed
         mid_index = len(self._previous_readed)
 
-        # If it has readed something
+        # If it has readed something...
         if readed:
             match_iter = re.finditer(self._end_string_pattern, union)
             for match in match_iter:
@@ -221,13 +222,19 @@ class Terminal(ttk.Frame):
         # Plan next reading
         self._read_fifo_event = self.after(self._read_interval_ms, self._read_fifo)
 
-    def run_command(self, cmd: str, background: bool = False, callback: Callable[[Command], object] | None = None) -> Command:
+    def run_command(self,
+            cmd: str,
+            background: bool = False,
+            callback: Callable[[Command], None] | None = None
+        ) -> Command:
         """
         Send a command to the terminal. It returns a Command object.
         
-        Use `background` to execute it in background, because using simply `&` the exit code indicates only if the command started correctly or not.
+        Use `background` to execute it in background, because using simply `&`
+        the exit code indicates only if the command started correctly or not.
         
-        Set `callback` to a function you want to execute at the end of the command. It receives the Command object as a parameter.
+        Set `callback` to a function you want to execute at the end of the command. 
+        It receives the Command object as a parameter.
         """
 
         # Check params
@@ -238,7 +245,7 @@ class Terminal(ttk.Frame):
         cmd = cmd.strip()
         cmd_string = f"({cmd}); printf \"{self.end_string.format(id=base36encode(self._next_id))}\""
 
-        # Add '&' if backgrounf is on
+        # Add '&' if background is on
         if background:
             cmd_string = f"({cmd_string}) &"
 
@@ -258,12 +265,13 @@ class Terminal(ttk.Frame):
         # If the terminal is ready, send the string
         if self._ready:
             string = string_normalizer(string).replace("$", "\\$")
-            subprocess.call(
+            # Check if the string is been sent
+            retcode = subprocess.run(
                 f"screen -S \"{self._screen_name}\" -X stuff \'{string}\'",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+                shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            ).returncode
+            if retcode != 0:
+                raise RuntimeError("Failed to send string to the terminal")
             self.event_generate('<<StringSent>>', data=string)
 
         # If the terminal is not ready, save the string in a queue
@@ -279,11 +287,9 @@ class Terminal(ttk.Frame):
         """Cleanup all the done"""
         
         # Close every possible instances of the screen with that name
-        subprocess.call(
+        subprocess.run(
             f'screen -ls | grep \"{self._screen_name}\" | cut -f 2 | while read line; do screen -S \"$line\" -X quit ; done',
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
 
         # Unplan the restart_term event is it is planned
