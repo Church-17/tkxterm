@@ -69,7 +69,7 @@ class Terminal(ttk.Frame):
         self._restart_term_event: str | None = None
         self._read_fifo_event: str | None = None
 
-        # Initialize properties
+        # Set properties
         self._read_interval_ms: int = 0
         self._read_length: int = 0
         self.restore_on_close: bool = restore_on_close
