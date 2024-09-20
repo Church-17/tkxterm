@@ -13,13 +13,21 @@ Besides Tkinter, it has XTerm and screen (a GNU software, generally preinstalled
 
 ## Usage
 
-TkXTerm makes available the Terminal Ttk frame, so all the Ttk Frame options are available.
+### Terminal
+
+TkXTerm makes available the `Terminal` Ttk frame, so all the Ttk Frame options are available.
 In addition, it can accept the following options:
 - `restore_on_close`, which enables automatic restart of the terminal when it is closed (e.g. by accidentally pressing Ctrl-D);
-- `read_interval_ms`, which specifies how many milliseconds should pass between each reading of the terminal to retrieve exit codes;
-- `read_length`, which specifies how many bytes to 1ead in each interval.
+- `read_interval_ms`, which specifies how many milliseconds should pass between each reading of the terminal to retrieve exit codes (this is also a property that can be set);
+- `read_length`, which specifies how many bytes to 1ead in each interval (this is also a property that can be set).
 
 It has also its methods to interact with the terminal:
 - `run_command` is the resposible for run any command you want on the terminal. To execute a command in background, use the `background` argument rather than using the classic `&` method, because otherwise the exit code indicates only if the command started correctly or not, and not the actual exit code of the command runned in background. You can also specify a `callback` that will be called immediatly after the command is terminated, this callback receive the Command object as argument.
 - `send_string` is the function for the actual sending any string to the terminal, and stores it if the terminal is not ready. With this you can send any string at any moment to the terminal.
 - `restart_term` is the procedure for reboot the terminal if it is closed.
+
+Furthermore, it have the properties `ready`, that indicates if the terminal is ready or not, and `end_string`, that returns the string appended at the end of any command executed.
+
+### Command
+
+The `run_command` method returns an instance of the `Command` class, that hold the command string in the `cmd` property, the exit code of itself in the `exit_code` property, and the callback in the `callback` property.
