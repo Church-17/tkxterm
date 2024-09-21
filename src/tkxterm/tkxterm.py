@@ -26,7 +26,7 @@ class Terminal(ttk.Frame):
         Parameters:
         - `restore_on_close: bool` If XTerm is closed (e.g. by a Ctrl-D), it will restart automatically;
         - `read_interval_ms: int` Interval in ms for reading the terminal to capture the exit codes;
-        - `read_length: int` How many bytes are readed per interval at most;
+        - `read_length: int` How many bytes are readed per interval at most (it must be >=32);
         """
 
         # Check if XTerm and screen are installed
@@ -47,60 +47,33 @@ class Terminal(ttk.Frame):
         super().__init__(master, **kwargs)
 
         # Interval variables
-        self._screen_name: str = f'tkxterm_{self.winfo_id()}'
+        self._screen_name: str = f"tkxterm_{self.winfo_id()}"
         self._ready: bool = False
         self._before_init_queue: Queue[str] = Queue()
+        self._xterm_proc: subprocess.Popen | None = None
         self._next_id: int = 0
         self._command_dict: dict[int, Command] = {}
-        self._xterm_proc: subprocess.Popen | None = None
+        self["restore_on_close"] = restore_on_close
+        self._restart_term_event: str | None = None
 
         # Variables for read fifo
-        self._fifo_path: str = f'/tmp/{self._screen_name}.log'
+        self._read_fifo_event: str | None = None
+        self._fifo_path: str = f"/tmp/{self._screen_name}.log"
         self._fifo_fd: int | None = None
-        self._previous_readed: bytes = b''
-        end_string: str = '\nID:{id};ExitCode:$?\n'
+        end_string: str = "\nID:{id};ExitCode:$?\n"
         self._end_string: str = string_normalizer(end_string).replace("\"", "\\\"")
         self._end_string_pattern: bytes = (re_normalizer(end_string)
-            .replace(b'\\{id\\}', b'([0-9a-z]+)')
-            .replace(b'\\$\\?', b'([0-9]{1,3})')
+            .replace(b"\\{id\\}", b"([0-9a-z]+)")
+            .replace(b"\\$\\?", b"([0-9]{1,3})")
         )
-
-        # Event identifiers
-        self._restart_term_event: str | None = None
-        self._read_fifo_event: str | None = None
-
-        # Set properties
-        self._read_interval_ms: int = 0
-        self._read_length: int = 0
-        self.restore_on_close: bool = restore_on_close
-        self.read_interval_ms = read_interval_ms
-        self.read_length = read_length
+        self._lenght_guard: int = 32 # Maximum lenght of end string cosidering the ID
+        self._previous_readed: bytes = b""
+        self["read_interval_ms"] = read_interval_ms
+        self["read_length"] = read_length
 
         # Start terminal
         self.restart_term()
 
-    @property
-    def read_interval_ms(self) -> int:
-        return self._read_interval_ms
-    
-    @read_interval_ms.setter
-    def read_interval_ms(self, value: int) -> None:
-        if not isinstance(value, int):
-            raise TypeError('"read_interval_ms" not a "int" instance')
-        self._read_interval_ms = value
-        
-    @property
-    def read_length(self) -> int:
-        return self._read_length
-    
-    @read_length.setter
-    def read_length(self, value: int) -> None:
-        if not isinstance(value, int):
-            raise TypeError('"read_length" not a "int" instance')
-        if value < 1024:
-            raise ValueError('"read_length" smaller than 1kb')
-        self._read_length = value
-    
     @property
     def ready(self) -> bool:
         return self._ready
@@ -166,7 +139,7 @@ class Terminal(ttk.Frame):
             readed = None
 
         # If terminal is not ready but a writer connect to the fifo, make it ready
-        if not self._ready and readed != b'':
+        if not self._ready and readed != b"":
             # Set logfile flush to 0
             retcode = subprocess.run(
                 f"screen -S {self._screen_name} -X logfile flush 0",
@@ -177,25 +150,25 @@ class Terminal(ttk.Frame):
 
             # Set ready state
             self._ready = True
-            self.event_generate('<<TerminalReady>>')
+            self.event_generate("<<TerminalReady>>")
 
             # Send to terminal all elements in queue
             while not self._before_init_queue.empty():
                 self.send_string(self._before_init_queue.get())
             
         # If terminal is ready but the writer disconnect from the fifo, make it not ready
-        elif self._ready and readed == b'':
+        elif self._ready and readed == b"":
             # Set ready state
             self._ready = False
-            self.event_generate('<<TerminalClosed>>')
+            self.event_generate("<<TerminalClosed>>")
 
             # Restart terminal if needed
-            if self.restore_on_close:
+            if self._restore_on_close:
                 self.restart_term()
 
         # Make readed coherent bytes
         if readed is None:
-            readed = b''
+            readed = b""
 
         # Search in union of previous_readed and readed, to handle broken regex
         union = self._previous_readed + readed
@@ -209,15 +182,17 @@ class Terminal(ttk.Frame):
                 key_id = int(match.group(1), base=36)
                 command = self._command_dict.get(key_id, None)
                 if command is not None:
-                    # Set exit code
+                    # Set exit code (regex group 2)
                     command.exit_code = int(match.group(2))
                     self._command_dict.pop(key_id)
-                    self.event_generate('<<CommandEnded>>', data=command)
+                    self.event_generate("<<CommandEnded>>", data=command)
                     # Found a match, so before there can't be broken regex
                     mid_index = match.end()
 
         # Update previous readed
         self._previous_readed = union[mid_index:]
+        if len(self._previous_readed) > self._lenght_guard:
+            self._previous_readed = self._previous_readed[-self._lenght_guard:]
 
         # Plan next reading
         self._read_fifo_event = self.after(self._read_interval_ms, self._read_fifo)
@@ -250,7 +225,7 @@ class Terminal(ttk.Frame):
             cmd_string = f"({cmd_string}) &"
 
         # Send command to terminal
-        self.send_string(f'{cmd_string}\n')
+        self.send_string(f"{cmd_string}\n")
 
         # Create Command object with unique ID
         command = Command(cmd, callback)
@@ -272,23 +247,18 @@ class Terminal(ttk.Frame):
             ).returncode
             if retcode != 0:
                 raise RuntimeError("Failed to send string to the terminal")
-            self.event_generate('<<StringSent>>', data=string)
+            self.event_generate("<<StringSent>>", data=string)
 
         # If the terminal is not ready, save the string in a queue
         else:
             self._before_init_queue.put(string)
-
-    # Override the destroy method to also cleanup
-    def destroy(self) -> None:
-        self._cleanup()
-        super().destroy()
 
     def _cleanup(self) -> None:
         """Cleanup all the done"""
         
         # Close every possible instances of the screen with that name
         subprocess.run(
-            f'screen -ls | grep \"{self._screen_name}\" | cut -f 2 | while read line; do screen -S \"$line\" -X quit ; done',
+            f"screen -ls | grep \"{self._screen_name}\" | cut -f 2 | while read line; do screen -S \"$line\" -X quit ; done",
             shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
 
@@ -314,3 +284,45 @@ class Terminal(ttk.Frame):
 
         # Unplan the cleanup procedure
         atexit.unregister(self._cleanup)
+
+    # Override the destroy method to also cleanup
+    def destroy(self) -> None:
+        self._cleanup()
+        super().destroy()
+
+    # Methods to override to always handle parameters
+
+    def configure(self, cnf = None, **kwargs):
+
+        for param in {"restore_on_close", "read_interval_ms", "read_length"}:
+            self[param] = kwargs.pop(param, self[param])
+
+        return super().configure(cnf, **kwargs)
+    
+    config = configure
+
+    def __getitem__(self, key) -> object:
+        if key == "restore_on_close":
+            return self._restore_on_close
+        elif key == "read_interval_ms":
+            return self._read_interval_ms
+        elif key == "read_length":
+            return self._read_length
+        else:
+            return super().__getitem__(key)
+
+    def __setitem__(self, key, value) -> None:
+        if key == "restore_on_close":
+            self._restore_on_close: bool = value
+        elif key == "read_interval_ms":
+            if not isinstance(value, int):
+                raise TypeError("read_interval_ms must be an integer")
+            self._read_interval_ms: int = value
+        elif key == "read_length":
+            if not isinstance(value, int):
+                raise TypeError("read_length must be an integer")
+            if value < self._lenght_guard:
+                raise ValueError(f"read_length must be >={self._lenght_guard}")
+            self._read_length: int = value
+        else:
+            super().__setitem__(key, value)
