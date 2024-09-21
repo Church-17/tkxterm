@@ -45,7 +45,6 @@ class Command:
 
     @callback.setter
     def callback(self, func: Callable | None) -> None:
-        # Check params
         if not isinstance(func, Callable | None):
             raise TypeError('"func" not a "Callable" instance')
         self._callback = func
