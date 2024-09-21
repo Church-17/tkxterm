@@ -48,5 +48,4 @@ class Command:
         # Check params
         if not isinstance(func, Callable | None):
             raise TypeError('"func" not a "Callable" instance')
-        
         self._callback = func
