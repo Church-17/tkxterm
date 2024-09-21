@@ -26,7 +26,7 @@ class Terminal(ttk.Frame):
         Parameters:
         - `restore_on_close: bool` If XTerm is closed (e.g. by a Ctrl-D), it will restart automatically;
         - `read_interval_ms: int` Interval in ms for reading the terminal to capture the exit codes;
-        - `read_length: int` How many bytes are readed per interval at most (it must be >=32);
+        - `read_length: int` How many bytes are readed per interval at most (it cannot be too low);
         """
 
         # Check if XTerm and screen are installed
@@ -66,7 +66,7 @@ class Terminal(ttk.Frame):
             .replace(b"\\{id\\}", b"([0-9a-z]+)")
             .replace(b"\\$\\?", b"([0-9]{1,3})")
         )
-        self._lenght_guard: int = 32 # Maximum lenght of end string cosidering the ID
+        self._lenght_guard: int = len(end_string) + 11 # Maximum lenght of end string cosidering the ID
         self._previous_readed: bytes = b""
         self["read_interval_ms"] = read_interval_ms
         self["read_length"] = read_length
