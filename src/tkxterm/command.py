@@ -11,12 +11,11 @@ class Command:
 
         # Check params
         if not isinstance(cmd, str):
-            raise TypeError('"cmd" not a "str" instance')
+            raise TypeError("cmd must be a string")
 
         # Internal variables
         self._cmd: str = cmd
         self._exit_code: int | None = None
-        self._callback: Callable | None = None
         
         # Set properties
         self.callback = callback
@@ -47,4 +46,4 @@ class Command:
     def callback(self, func: Callable | None) -> None:
         if not isinstance(func, Callable | None):
             raise TypeError('"func" not a "Callable" instance')
-        self._callback = func
+        self._callback: Callable | None = func
