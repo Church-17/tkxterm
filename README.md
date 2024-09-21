@@ -18,8 +18,10 @@ Besides Tkinter, it has XTerm and screen (a GNU software, generally preinstalled
 TkXTerm makes available the `Terminal` Ttk frame, so all the Ttk Frame options are available.
 In addition, it can accept the following options:
 - `restore_on_close`, which enables automatic restart of the terminal when it is closed (e.g. by accidentally pressing Ctrl-D);
-- `read_interval_ms`, which specifies how many milliseconds should pass between each reading of the terminal to retrieve exit codes (this is also a property that can be set);
-- `read_length`, which specifies how many bytes to 1ead in each interval (this is also a property that can be set).
+- `read_interval_ms`, which specifies how many milliseconds should pass between each reading of the terminal to retrieve exit codes;
+- `read_length`, which specifies how many bytes to read in each interval.
+
+All these options can be changed like any option of the frame.
 
 It has also its methods to interact with the terminal:
 - `run_command` is the resposible for run any command you want on the terminal. To execute a command in background, use the `background` argument rather than using the classic `&` method, because otherwise the exit code indicates only if the command started correctly or not, and not the actual exit code of the command runned in background. You can also specify a `callback` that will be called immediatly after the command is terminated, this callback receive the Command object as argument.
