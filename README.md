@@ -11,6 +11,8 @@ This project is born with the purpose of having an embedded and fully functional
 TkXTerm can be installed from PyPI using the command `pip install tkxterm`.
 Besides Tkinter, it has XTerm and screen (a GNU software, generally preinstalled in all Linux system) as dependecies. Make sure you have both installed before trying to use this library. Because of these dependencies, this library is available only for Linux system.
 
+If you want to change any behaviour or the style of the terminal itself, for example to enable the scrolling or the colors, you can relate to the settings of GNU screen tool and the XTerm settings.
+
 ## Usage
 
 ### Terminal
