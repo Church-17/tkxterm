@@ -25,6 +25,8 @@ In addition, it can accept the following options:
 
 All these options can be changed like any option of the frame.
 
+> The terminal will only be launched once it has been visible!
+
 It has also its methods to interact with the terminal:
 - `run_command` is the resposible for run any command you want on the terminal. To execute a command in background, use the `background` argument rather than using the classic `&` method, because otherwise the exit code indicates only if the command started correctly or not, and not the actual exit code of the command runned in background. You can also specify a `callback` that will be called immediatly after the command is terminated, this callback receive the Command object as argument.
 - `send_string` is the function for the actual sending any string to the terminal, and stores it if the terminal is not ready. With this you can send any string at any moment to the terminal.
