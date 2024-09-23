@@ -29,20 +29,6 @@ class Terminal(ttk.Frame):
         - `read_length: int` How many bytes are readed per interval at most (it cannot be too low);
         """
 
-        # Check if XTerm and screen are installed
-        retcode = subprocess.run(
-            "xterm -version",
-            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        ).returncode
-        if retcode != 0:
-            raise RuntimeError("XTerm not installed, please install it")
-        retcode = subprocess.run(
-            "screen --version",
-            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        ).returncode
-        if retcode != 0:
-            raise RuntimeError("screen not installed, please install it")
-
         # Create Ttk frame
         super().__init__(master, **kwargs)
 
@@ -326,3 +312,18 @@ class Terminal(ttk.Frame):
             self._read_length: int = value
         else:
             super().__setitem__(key, value)
+
+
+# Check if XTerm and screen are installed
+retcode = subprocess.run(
+    "xterm -version",
+    shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+).returncode
+if retcode != 0:
+    raise RuntimeError("XTerm not installed, please install it")
+retcode = subprocess.run(
+    "screen --version",
+    shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+).returncode
+if retcode != 0:
+    raise RuntimeError("screen not installed, please install it")
