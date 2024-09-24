@@ -26,6 +26,7 @@ window.focus_force()
 
 term0 = Terminal(window, restore_on_close=True)
 term0.grid(row=0, column=1, sticky='NSWE', rowspan=2)
+term0.run_command("echo hello", callback=(lambda x: print('ok')))
 
 # notebook.add(term0)
 # term1 = Terminal(notebook, restore_on_close=True)
