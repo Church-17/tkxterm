@@ -74,36 +74,31 @@ class Terminal(ttk.Frame):
         # If this frame is visible...
         if self.winfo_ismapped():
 
-            # Ensure one cleanup on exit
+            # Cleanup and plan it once on exit
+            self._cleanup()
             atexit.unregister(self._cleanup)
             atexit.register(self._cleanup)
 
-            # If fifo not exist create it
-            if not os.path.exists(self._fifo_path):
-                os.mkfifo(self._fifo_path)
+            # Create fifo
+            os.mkfifo(self._fifo_path)
             
-            # If XTerm process is off create it
-            if self._xterm_proc is None or self._xterm_proc.poll() is not None:
-                self._xterm_proc = subprocess.Popen(
-                    # Start XTerm in frame (geometry will adapt)
-                    f"xterm -into {self.winfo_id()} -geometry 1000x1000 -e \'" + string_normalizer(
-                        # If the screen exists recover it, else create it
-                        f"if (screen -ls | grep \"{self._screen_name}\"); then "
-                            f"screen -r \"{self._screen_name}\"; "
-                        f"else "
-                            f"screen -S \"{self._screen_name}\" -L -Logfile \"{self._fifo_path}\"; "
-                        f"fi"
-                    ) + f"\'",
-                    shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                )
+            # Run XTerm process
+            self._xterm_proc = subprocess.Popen(
+                # Start XTerm in frame (geometry will adapt)
+                f"xterm -into {self.winfo_id()} -geometry 1000x1000 -e \'" + string_normalizer(
+                    # If the screen exists recover it, else create it
+                    f"if (screen -ls | grep \"{self._screen_name}\"); then "
+                        f"screen -r \"{self._screen_name}\"; "
+                    f"else "
+                        f"screen -S \"{self._screen_name}\" -L -Logfile \"{self._fifo_path}\"; "
+                    f"fi"
+                ) + f"\'",
+                shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
             
-            # If fifo is not opened, open it
-            if self._fifo_fd is None:
-                self._fifo_fd = os.open(self._fifo_path, os.O_RDONLY | os.O_NONBLOCK)
-
-            # Plan reading fifo
-            if self._read_fifo_event is None:
-                self._read_fifo_event = self.after(self._read_interval_ms, self._read_fifo)
+            # Open and plan to read fifo
+            self._fifo_fd = os.open(self._fifo_path, os.O_RDONLY | os.O_NONBLOCK)
+            self._read_fifo_event = self.after(self._read_interval_ms, self._read_fifo)
             
             # Remove the planned restart_term procedure once it's been executed if it was planned
             if self._restart_term_event is not None:
